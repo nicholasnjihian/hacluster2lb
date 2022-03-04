@@ -1,0 +1,23 @@
+# Copyright 2022 nicknjihia
+# See LICENSE file for licensing details.
+
+# For a complete list of supported options, see:
+# https://juju.is/docs/sdk/metadata-reference
+name: hacluster2lb
+description: |
+  This is a subordinate charm that converts an hacluster relation endpoint to a LB endpoint.
+  It allows to run clustered services across different subnets or in a fan-network.
+summary: |
+  Convert HAcluster to Loadbalancer endpoint.
+subordinate: True
+series:
+- xenial
+- bionic
+- focal
+provides:
+  hacluster:
+    interface: hacluster
+    scope: container
+requires:
+  loadbalancer:
+    interface: loadbalancer
