@@ -17,7 +17,7 @@ import logging
 from ops.charm import CharmBase
 from ops.framework import StoredState
 from ops.main import main
-from ops.model import ActiveStatus,
+from ops.model import ActiveStatus,BlockedStatus
 
 logger = logging.getLogger(__name__)
 
@@ -62,13 +62,27 @@ class Hacluster2LbCharm(CharmBase):
            self.unit.status = BlockedStatus("hacluster relation not present")
         if not self.model.relations["loadbalancer"]:
            self.unit.status = BlockedStatus("loadbalancer relation not present")
-        ha_provider_relation = self.model.relations["hacluster"]
-        lb_consumer_relation = self.model.get_relation("loadbalancer")
-        
-        current = self.config["thing"]
-        if current not in self._stored.things:
-            logger.debug("found a new thing: %r", current)
-            self._stored.things.append(current)
+        ha_provider_relation = self.model.get_relation("hacluster")
+        lb_provider_relation = self.model.get_relation("loadbalancer")
+        vip_info = [key for key, val in ha_provider_relation.data["json_resource_params"].items() if v=="ocf:heartbeat:IPaddr2"]
+        if len(vip_info) == 0:
+            self.unit.status = BlockedStatus("No VIP provided by hacluster
+relation")
+            return
+        elif len(vip_info) > 1:
+            self.unit.status = BlockedStatus("More than one VIP provided by
+the hacluster relation")
+            return
+        else:
+            vip = ha_provider_relation.data["json_resources"](vip_info[0])
+            if not (self.unit.is_leader() and self.lb_provider.is_available):
+                return
+            request = self.lb_provider.get_request("lb-consumer")
+            
+#        current = self.config["thing"]
+#        if current not in self._stored.things:
+#            logger.debug("found a new thing: %r", current)
+#            self._stored.things.append(current)
 
 if __name__ == "__main__":
     main(Hacluster2LbCharm)
