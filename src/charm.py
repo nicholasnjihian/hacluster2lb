@@ -15,9 +15,9 @@ develop a new k8s charm using the Operator Framework:
 import logging
 
 from ops.charm import CharmBase
-from ops.framework import StoredState
+from ops.framework import EventBase, StoredState
 from ops.main import main
-from ops.model import ActiveStatus,BlockedStatus
+from ops.model import ActiveStatus, BlockedStatus
 
 logger = logging.getLogger(__name__)
 
@@ -29,14 +29,8 @@ class Hacluster2LbCharm(CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
-        #self.framework.observe(self.on.config_changed, self._on_config_changed)
-        #self.framework.observe(self.on.upgrade_charm, self._on_config_changed)
-        #self.framework.observe(self.on.hacluster_relation_joined, self._on_config_changed)
-        #self.framework.observe(self.on.hacluster_relation_changed, self._on_config_changed)
-        #self.framework.observe(self.on.hacluster_relation_broken, self._on_config_changed)
-        #self.framework.observe(self.on.loadbalancer_relation_joined, self._on_config_changed)
-        #self.framework.observe(self.on.loadbalancer_relation_changed, self._on_config_changed)
-        #self.framework.observe(self.on.loadbalancer_relation_broken, self._on_config_changed)
+        logger.debug('Initializing hacluster2lb charm')
+
         for event in [
             self.on.config_changed,
             self.on.upgrade_charm,
@@ -45,12 +39,12 @@ class Hacluster2LbCharm(CharmBase):
             self.on["hacluster"].relation_broken,
             self.on["loadbalancer"].relation_joined,
             self.on["loadbalancer"].relation_changed,
-            self.on["loadbalancer"].relation_broken
+            self.on["loadbalancer"].relation_broken,
         ]:
             self.framework.observe(event, self._on_config_changed)
         self._stored.set_default(things=[])
 
-    def _on_config_changed(self, event: ops.charm.Event):
+    def _on_config_changed(self, event: EventBase):
         """Manages the change of configuration or the relation(s).
 
         The method checks if the hacluster or loadbalancer relation is present and if absent,
@@ -59,30 +53,30 @@ class Hacluster2LbCharm(CharmBase):
         to the loadbalancer along with the port mapping.
         """
         if not self.model.relations["hacluster"]:
-           self.unit.status = BlockedStatus("hacluster relation not present")
+            self.unit.status = BlockedStatus("hacluster relation not present")
         if not self.model.relations["loadbalancer"]:
-           self.unit.status = BlockedStatus("loadbalancer relation not present")
+            self.unit.status = BlockedStatus("loadbalancer relation not present")
         ha_provider_relation = self.model.get_relation("hacluster")
         lb_provider_relation = self.model.get_relation("loadbalancer")
-        vip_info = [key for key, val in ha_provider_relation.data["json_resource_params"].items() if v=="ocf:heartbeat:IPaddr2"]
+        vip_info = [
+            key
+            for key, val in ha_provider_relation.data[self.model.app]["json_resource_params"].items()
+            if v == "ocf:heartbeat:IPaddr2"
+        ]
         if len(vip_info) == 0:
-            self.unit.status = BlockedStatus("No VIP provided by hacluster
-relation")
+            self.unit.status = BlockedStatus("No VIP provided" "by hacluster relation")
             return
         elif len(vip_info) > 1:
-            self.unit.status = BlockedStatus("More than one VIP provided by
-the hacluster relation")
+            self.unit.status = BlockedStatus(
+                "More than one VIP" "provided by the hacluster relation"
+            )
             return
         else:
-            vip = ha_provider_relation.data["json_resources"](vip_info[0])
+            vip = ha_provider_relation.data[self.model.app]["json_resources"](vip_info[0])
             if not (self.unit.is_leader() and self.lb_provider.is_available):
                 return
             request = self.lb_provider.get_request("lb-consumer")
-            
-#        current = self.config["thing"]
-#        if current not in self._stored.things:
-#            logger.debug("found a new thing: %r", current)
-#            self._stored.things.append(current)
+
 
 if __name__ == "__main__":
     main(Hacluster2LbCharm)
