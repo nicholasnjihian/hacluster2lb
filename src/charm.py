@@ -12,7 +12,10 @@ develop a new k8s charm using the Operator Framework:
     https://discourse.charmhub.io/t/4208
 """
 
+import json
 import logging
+import re
+from ipaddress import ip_address
 
 from loadbalancer_interface import LBProvider
 from ops.charm import CharmBase
@@ -21,6 +24,8 @@ from ops.main import main
 from ops.model import BlockedStatus
 
 logger = logging.getLogger(__name__)
+
+PATTERN = r"\d{1,3}?\.\d{1,3}?\.\d{1,3}?\.\d{1,3}?"
 
 
 class Hacluster2LbCharm(CharmBase):
@@ -58,42 +63,58 @@ class Hacluster2LbCharm(CharmBase):
         if not self.model.relations["loadbalancer"]:
             self.unit.status = BlockedStatus("loadbalancer relation not present")
         ha_provider_relation = self.model.get_relation("hacluster")
-        vip_info = [
-            key
-            for key, val in ha_provider_relation.data[self.model.app][
-                "json_resource_params"
-            ].items()
-            if val == "ocf:heartbeat:IPaddr2"
+
+        json_resources = ha_provider_relation.data[self.model.app]["json_resources"]
+        json_resources = json.loads(json_resources)
+
+        vip_field = [
+            key for key, val in json_resources.items() if val == "ocf:heartbeat:IPaddr2"
+        ][0]
+
+        json_resource_params = ha_provider_relation.data[self.model.app][
+            "json_resource_params"
         ]
-        # vip_info = vip_info.split("")
-        if len(vip_info) == 0:
+        json_resource_params = json.loads(json_resource_params)
+        vip_info = json_resource_params[vip_field]
+        vip_address = []
+        for match in re.finditer(PATTERN, vip_info):
+            start = match.start()
+            end = match.end()
+            try:
+                addr = ip_address(vip_info[start:end])
+                logging.debug("VIP address retrieved: %s", repr(addr))
+                vip_address.append(vip_info[start:end])
+            except ValueError as err:
+                self.unit.status = BlockedStatus("Relation vip data invalid")
+                logging.error("%s", repr(err))
+
+        if len(vip_address) == 0:
             self.unit.status = BlockedStatus("No VIP provided" "by hacluster relation")
             return
-        elif len(vip_info) > 1:
+        elif len(vip_address) > 1:
             self.unit.status = BlockedStatus(
                 "More than one VIP" "provided by the hacluster relation"
             )
             return
         else:
-            vip = ha_provider_relation.data[self.model.app]["json_resources"](
-                vip_info[0]
-            )
+            vip = vip_address[0]
             # port-mapping =
             if not (self.unit.is_leader() and self.lb_provider.is_available):
                 return
+
             try:
                 self.lb_provider = LBProvider(self, "loadbalancer")
                 request = self.lb_provider_relation.get_request("lb-consumer")
                 request.protocol = request.protocols.tcp
                 request.port_mapping = {
-                    # self.config["service-port"]: {port-mapping}
+                    80: self.config["service-port"]  # TODO Need to edit this
                 }
                 request.ingress_address = vip
                 request.public = False  # Keep it as internal, maybe a config in
                 # the future? -> `self.config["public"]`
                 self.lb_provider.send_request(request)
-            except Exception as _:
-                pass  # TODO
+            except Exception as err:
+                logging.debug("Unable to send request to LB: %s", repr(err))  # TODO
 
 
 if __name__ == "__main__":

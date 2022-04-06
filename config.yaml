@@ -1,14 +1,11 @@
 # Copyright 2022 nicknjihia
 # See LICENSE file for licensing details.
 #
-# TEMPLATE-TODO: change this example to suit your needs.
-# If you don't need a config, you can remove the file entirely.
-# It ties in to the example _on_config_changed handler in src/charm.py
-#
 # Learn more about config at: https://juju.is/docs/sdk/config
 
 options:
-  thing:
-    default: 🎁
-    description: A thing used by the charm.
-    type: string
+  service-port:
+    default:        # TODO Should default port be 80?
+    description: |
+      The port that is mapped to the remote loadbalancer application's port.
+    type: int

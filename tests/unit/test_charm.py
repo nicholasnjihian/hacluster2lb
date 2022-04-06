@@ -9,16 +9,18 @@ from ops.testing import Harness
 
 from charm import Hacluster2LbCharm
 
-REL_DATA = {
-    json_clones: r'{"cl_ks_haproxy":"res_ks_haproxy"}',
-    json_delete_resources: r'["res_ks_eth0_vip"]',
-    json_groups: r'{"grp_ks_vips":"res_ks_121f3f8_vip"}',
-    json_init_services: r'{"res_ks_haproxy":"haproxy"}',
-    json_resource_params: r"""{"res_ks_121f3f8_vip":"params ip=\"10.165.186.10\"
-op monitor' timeout=\"20s\" interval=\"10s\"
-depth=\"0\"","res_ks_haproxy":"meta migration-threshold=\"INFINITY\"
-failure-timeout=\"5s\" op monitor interval=\"5s\""}""",
-    json_resources: (
+LB_INTERFACE_DATA = {
+    "json_clones": r'{"cl_ks_haproxy":"res_ks_haproxy"}',
+    "json_delete_resources": r'["res_ks_eth0_vip"]',
+    "json_groups": r'{"grp_ks_vips":"res_ks_121f3f8_vip"}',
+    "json_init_services": r'{"res_ks_haproxy":"haproxy"}',
+    "json_resource_params": (
+        '{"res_ks_121f3f8_vip":"params ip=\\"10.165.186.10\\" '
+        'op monitor\' timeout=\\"20s\\" interval=\\"10s\\" depth=\\'
+        '"0\\"","res_ks_haproxy":"meta migration-threshold=\\"INFINITY\\" '
+        'failure-timeout=\\"5s\\" op monitor interval=\\"5s\\""}'
+    ),
+    "json_resources": (
         r'{"res_ks_121f3f8_vip":'
         r'"ocf:heartbeat:IPaddr2","res_ks_haproxy":"lsb:haproxy"}'
     ),
@@ -39,7 +41,9 @@ class TestCharm(unittest.TestCase):
         rel_id_lb = self.harness.add_relation("loadbalancer", "loadbalancerapp")
         self.assertIsInstance(rel_id_lb, int)
         self.harness.add_relation_unit(rel_id_lb, "loadbalancerapp/0")
-        self.harness.update_relation_data(rel_id_ha, "haclusterapp", {REL_DATA})
+        self.harness.update_relation_data(
+            rel_id_ha, "haclusterapp", {LB_INTERFACE_DATA}
+        )
         relation_data = self.harness.get_relation_data(
             rel_id_ha, self.harness.model.app.name
         )["json_resources"]
