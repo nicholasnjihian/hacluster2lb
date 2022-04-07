@@ -48,7 +48,7 @@ class Hacluster2LbCharm(CharmBase):
             self.on["loadbalancer"].relation_broken,
         ]:
             self.framework.observe(event, self._on_config_changed)
-        self._stored.set_default(things=[])
+        self.lb_provider = LBProvider(self, "loadbalancer")
 
     def _on_config_changed(self, event: EventBase):
         """Manages the change of configuration or the relation(s).
@@ -58,20 +58,29 @@ class Hacluster2LbCharm(CharmBase):
         interface resource information and extract the VIP which will be
         to the loadbalancer along with the port mapping.
         """
+
+        # Check if the relations are present, return otherwise
         if not self.model.relations["hacluster"]:
             self.unit.status = BlockedStatus("hacluster relation not present")
+            return
         if not self.model.relations["loadbalancer"]:
             self.unit.status = BlockedStatus("loadbalancer relation not present")
+            return
         ha_provider_relation = self.model.get_relation("hacluster")
+        # Check if data is present in the hacluster relation, return otherwise
+        if ("json_resources" not in ha_provider_relation.data[ha_provider_relation.app] or
+            "json_resource_params" not in ha_provider_relation.data[ha_provider_relation.app]):
+            self.unit.status = BlockedStatus("Waiting for hacluster data")
+            return
 
-        json_resources = ha_provider_relation.data[self.model.app]["json_resources"]
+        json_resources = ha_provider_relation.data[ha_provider_relation.app]["json_resources"]
         json_resources = json.loads(json_resources)
 
         vip_field = [
             key for key, val in json_resources.items() if val == "ocf:heartbeat:IPaddr2"
         ][0]
 
-        json_resource_params = ha_provider_relation.data[self.model.app][
+        json_resource_params = ha_provider_relation.data[ha_provider_relation.app][
             "json_resource_params"
         ]
         json_resource_params = json.loads(json_resource_params)
@@ -103,7 +112,6 @@ class Hacluster2LbCharm(CharmBase):
                 return
 
             try:
-                self.lb_provider = LBProvider(self, "loadbalancer")
                 request = self.lb_provider_relation.get_request("lb-consumer")
                 request.protocol = request.protocols.tcp
                 request.port_mapping = {
