@@ -108,14 +108,14 @@ class Hacluster2LbCharm(CharmBase):
             try:
                 # Determine whether the match above is a valid address
                 addr = ip_address(ip_address_match)
-                logging.debug("VIP address retrieved: %s", repr(addr))
+                logger.debug("VIP address retrieved: %s", repr(addr))
                 vip_address.append(ip_address_match)
                 # Increase counter as address match is valid ip address
                 counter += 1
             except ValueError as err:
                 # Only log an error when IP address match is an invalid
                 # address
-                logging.error("%s", repr(err))
+                logger.error("%s", repr(err))
 
 
         if len(vip_address) == 0:
@@ -138,7 +138,7 @@ class Hacluster2LbCharm(CharmBase):
                 # the future? -> `self.config["public"]`
                 self.lb_provider.send_request(request)
             except Exception as err:
-                logging.debug("Unable to send request to LB: %s", repr(err))  # TODO
+                logger.debug("Unable to send request to LB: %s", repr(err))  # TODO
 
 
 if __name__ == "__main__":

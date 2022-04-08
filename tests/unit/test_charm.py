@@ -51,8 +51,6 @@ class TestCharm(unittest.TestCase):
 
         self.harness.begin_with_initial_hooks()
         mock_send_req.assert_called_once()
-        
-        
         # relation_data = self.harness.get_relation_data(
         #    rel_id_ha, self.harness.model.app.name
         # )["json_resources"]
