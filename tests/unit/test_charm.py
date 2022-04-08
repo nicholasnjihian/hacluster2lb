@@ -33,7 +33,8 @@ class TestCharm(unittest.TestCase):
         self.addCleanup(self.harness.cleanup)
         self.harness.begin()
 
-    def test_config_changed(self):
+    @patch.object(charm.LBProvider, "send_request")
+    def test_config_changed(self, mock_send_req):
         self.harness.set_leader(True)
 
         rel_id_ha = self.harness.add_relation("hacluster", "haclusterapp")
@@ -48,6 +49,10 @@ class TestCharm(unittest.TestCase):
         self.harness.add_relation_unit(rel_id_lb, "loadbalancerapp/0")
         self.harness.update_relation_data(rel_id_ha, "haclusterapp", LB_INTERFACE_DATA)
 
+        self.harness.begin_with_initial_hooks()
+        mock_send_req.assert_called_once()
+        
+        
         # relation_data = self.harness.get_relation_data(
         #    rel_id_ha, self.harness.model.app.name
         # )["json_resources"]
