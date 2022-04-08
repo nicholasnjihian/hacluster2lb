@@ -68,12 +68,19 @@ class Hacluster2LbCharm(CharmBase):
             return
         ha_provider_relation = self.model.get_relation("hacluster")
         # Check if data is present in the hacluster relation, return otherwise
-        if ("json_resources" not in ha_provider_relation.data[ha_provider_relation.app] or
-            "json_resource_params" not in ha_provider_relation.data[ha_provider_relation.app]):
+        if "json_resources" not in ha_provider_relation.data[ha_provider_relation.app]:
+            self.unit.status = BlockedStatus("Waiting for hacluster data")
+            return
+        if (
+            "json_resource_params"
+            not in ha_provider_relation.data[ha_provider_relation.app]
+        ):
             self.unit.status = BlockedStatus("Waiting for hacluster data")
             return
 
-        json_resources = ha_provider_relation.data[ha_provider_relation.app]["json_resources"]
+        json_resources = ha_provider_relation.data[ha_provider_relation.app][
+            "json_resources"
+        ]
         json_resources = json.loads(json_resources)
 
         vip_field = [
@@ -85,25 +92,34 @@ class Hacluster2LbCharm(CharmBase):
         ]
         json_resource_params = json.loads(json_resource_params)
         vip_info = json_resource_params[vip_field]
+
         vip_address = []
+        counter = 0
+
         for match in re.finditer(PATTERN, vip_info):
+            if counter > 1:
+               self.unit.status = BlockedStatus(
+                   "More than one VIP" "provided by the hacluster relation"
+               )
+               return
             start = match.start()
             end = match.end()
+            ip_address_match  = vip_info[start:end]
             try:
-                addr = ip_address(vip_info[start:end])
+                # Determine whether the match above is a valid address
+                addr = ip_address(ip_address_match)
                 logging.debug("VIP address retrieved: %s", repr(addr))
-                vip_address.append(vip_info[start:end])
+                vip_address.append(ip_address_match)
+                # Increase counter as address match is valid ip address
+                counter += 1
             except ValueError as err:
-                self.unit.status = BlockedStatus("Relation vip data invalid")
+                # Only log an error when IP address match is an invalid
+                # address
                 logging.error("%s", repr(err))
+
 
         if len(vip_address) == 0:
             self.unit.status = BlockedStatus("No VIP provided" "by hacluster relation")
-            return
-        elif len(vip_address) > 1:
-            self.unit.status = BlockedStatus(
-                "More than one VIP" "provided by the hacluster relation"
-            )
             return
         else:
             vip = vip_address[0]

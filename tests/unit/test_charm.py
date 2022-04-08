@@ -39,22 +39,22 @@ class TestCharm(unittest.TestCase):
         rel_id_ha = self.harness.add_relation("hacluster", "haclusterapp")
         self.assertIsInstance(rel_id_ha, int)
         self.harness.add_relation_unit(rel_id_ha, "haclusterapp/0")
-        self.assertEqual(self.harness.charm.unit.status.message, "loadbalancer relation not present")
+        self.assertEqual(
+            self.harness.charm.unit.status.message, "loadbalancer relation not present"
+        )
 
         rel_id_lb = self.harness.add_relation("loadbalancer", "loadbalancerapp")
         self.assertIsInstance(rel_id_lb, int)
         self.harness.add_relation_unit(rel_id_lb, "loadbalancerapp/0")
-        self.harness.update_relation_data(
-            rel_id_ha, "haclusterapp", LB_INTERFACE_DATA
-        )
+        self.harness.update_relation_data(rel_id_ha, "haclusterapp", LB_INTERFACE_DATA)
 
-        ##relation_data = self.harness.get_relation_data(
-        ##    rel_id_ha, self.harness.model.app.name
-        ##)["json_resources"]
-        ##self.assertEqual(
-        ##    relation_data,
-        ##    r'{"res_ks_121f3f8_vip":"ocf:heartbeat:IPaddr2","res_ks_haproxy":"lsb:haproxy"}',
-        ##)
+        # relation_data = self.harness.get_relation_data(
+        #    rel_id_ha, self.harness.model.app.name
+        # )["json_resources"]
+        # self.assertEqual(
+        #    relation_data,
+        #    r'{"res_ks_121f3f8_vip":"ocf:heartbeat:IPaddr2","res_ks_haproxy":"lsb:haproxy"}',
+        # )
 
         # TODO
         # Test request response communication in LB interface for VIP and
